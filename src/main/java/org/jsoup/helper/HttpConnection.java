@@ -421,6 +421,9 @@ public class HttpConnection implements Connection {
                     return false;
                 }
 
+                if (end >= input.length)
+                    return false;
+
                 while (i < end) {
                     i++;
                     o = input[i];
@@ -791,7 +794,7 @@ public class HttpConnection implements Connection {
                     res.byteData = DataUtil.emptyByteBuffer();
                 }
             } catch (IOException e){
-                // per Java's documentation, this is not necessary, and precludes keepalives. However in practise,
+                // per Java's documentation, this is not necessary, and precludes keepalives. However in practice,
                 // connection errors will not be released quickly enough and can cause a too many open files error.
                 conn.disconnect();
                 throw e;

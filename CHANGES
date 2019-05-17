@@ -1,6 +1,11 @@
 jsoup changelog
 
-**** Release 1.12.1 [PENDING]
+**** Release 1.12.2 [PENDING]
+  * Improvement: the :has() selector now supports relative selectors. For example, the query
+    "div:has(> a)" will select all "div" elements that have at least one direct child "a" element.
+    <https://github.com/jhy/jsoup/pull/1214>
+
+**** Release 1.12.1 [2019-May12]
   * Change: removed deprecated method to disable TLS cert checking Connection.validateTLSCertificates().
 
   * Change: some internal methods have been rearranged; if you extended any of the Jsoup internals you may need to make
@@ -34,6 +39,10 @@ jsoup changelog
     automatically set the mime boundary.
     <https://github.com/jhy/jsoup/pull/1058>
 
+  * Improvement: Jsoup will now detect if an input file or URL is binary, and will refuse to attempt to parse it, with
+    an IO exception. This prevents runaway processing time and wasted effort creating meaningless parsed DOM trees.
+    <https://github.com/jhy/jsoup/issues/1192>
+
   * Bugfix: when using the tag case preserving parsing settings, certain HTML tree building rules where not followed
     for upper case tags.
     <https://github.com/jhy/jsoup/issues/1149>
@@ -62,7 +71,14 @@ jsoup changelog
     Attribute#setValue(val)
     <https://github.com/jhy/jsoup/issues/1107>
 
-  * Updated jetty-server (which is used for integration tests) to latest 9.2 series (9.2.26.v20180806).
+  * Bugfix: Element.shallowClone() was not making a clone of its attributes.
+    <https://github.com/jhy/jsoup/issues/1201>
+
+  * Bugfix: fixed an ArrayIndexOutOfBoundsException in HttpConnection.looksLikeUtf8 when testing small strings in
+    specific ranges.
+    <https://github.com/jhy/jsoup/issues/1172>
+
+  * Updated jetty-server (which is used for integration tests) to latest 9.2 series (9.2.28).
 
 *** Release 1.11.3 [2018-Apr-15]
   * Improvement: CDATA sections are now treated as whitespace preserving (regardless of the containing element), and are

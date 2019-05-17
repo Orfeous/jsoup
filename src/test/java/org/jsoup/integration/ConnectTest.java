@@ -1,10 +1,12 @@
 package org.jsoup.integration;
 
 import org.jsoup.Connection;
+import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.UncheckedIOException;
 import org.jsoup.integration.servlets.Deflateservlet;
 import org.jsoup.integration.servlets.EchoServlet;
+import org.jsoup.integration.servlets.FileServlet;
 import org.jsoup.integration.servlets.HelloServlet;
 import org.jsoup.integration.servlets.InterruptedServlet;
 import org.jsoup.integration.servlets.RedirectServlet;
@@ -63,7 +65,7 @@ public class ConnectTest {
     }
 
     @Test
-    public void fetchURIWithWihtespace() throws IOException {
+    public void fetchURIWithWhitespace() throws IOException {
         Connection con = Jsoup.connect(echoUrl + "#with whitespaces");
         Document doc = con.get();
         assertTrue(doc.title().contains("Environment Variables"));
@@ -86,6 +88,36 @@ public class ConnectTest {
     private static String ihVal(String key, Document doc) {
         final Element first = doc.select("th:contains(" + key + ") + td").first();
         return first != null ? first.text() : null;
+    }
+
+    @Test
+    public void throwsExceptionOn404() {
+        String url = EchoServlet.Url;
+        Connection con = Jsoup.connect(url).header(EchoServlet.CodeParam, "404");
+
+        boolean threw = false;
+        try {
+            Document doc = con.get();
+        } catch (HttpStatusException e) {
+            threw = true;
+            assertEquals("org.jsoup.HttpStatusException: HTTP error fetching URL. Status=404, URL=" + e.getUrl(), e.toString());
+            assertTrue(e.getUrl().startsWith(url));
+            assertEquals(404, e.getStatusCode());
+        } catch (IOException e) {
+        }
+        assertTrue(threw);
+    }
+
+    @Test
+    public void ignoresExceptionIfSoConfigured() throws IOException {
+        String url = EchoServlet.Url;
+        Connection con = Jsoup.connect(url)
+            .header(EchoServlet.CodeParam, "404")
+            .ignoreHttpErrors(true);
+        Connection.Response res = con.execute();
+        Document doc = res.parse();
+        assertEquals(404, res.statusCode());
+        assertEquals("Webserver Environment Variables", doc.title());
     }
 
     @Test
@@ -418,7 +450,7 @@ public class ConnectTest {
     }
 
     @Test
-    public void handlesEmtpyStreamDuringBufferdRead() throws IOException {
+    public void handlesEmtpyStreamDuringBufferedRead() throws IOException {
         Connection.Response res = Jsoup.connect(InterruptedServlet.Url)
             .timeout(200)
             .execute();
@@ -476,5 +508,78 @@ public class ConnectTest {
         assertEquals(EchoServlet.Url, doc.location());
         assertEquals("POST", ihVal("Method", doc));
         assertEquals("there", ihVal("Hello", doc));
+    }
+
+    @Test public void getUtf8Bom() throws IOException {
+        Connection con = Jsoup.connect(FileServlet.Url);
+        con.data(FileServlet.LocationParam, "/bomtests/bom_utf8.html");
+        Document doc = con.get();
+
+        assertEquals("UTF-8", con.response().charset());
+        assertEquals("OK", doc.title());
+    }
+
+    @Test
+    public void testBinaryThrowsExceptionWhenTypeIgnored() {
+        Connection con = Jsoup.connect(FileServlet.Url);
+        con.data(FileServlet.LocationParam, "/htmltests/thumb.jpg");
+        con.data(FileServlet.ContentTypeParam, "image/jpeg");
+        con.ignoreContentType(true);
+
+        boolean threw = false;
+        try {
+            con.execute();
+            Document doc = con.response().parse();
+        } catch (IOException e) {
+            threw = true;
+            assertEquals("Input is binary and unsupported", e.getMessage());
+        }
+        assertTrue(threw);
+    }
+
+    @Test
+    public void testBinaryResultThrows() {
+        Connection con = Jsoup.connect(FileServlet.Url);
+        con.data(FileServlet.LocationParam, "/htmltests/thumb.jpg");
+        con.data(FileServlet.ContentTypeParam, "text/html");
+
+        boolean threw = false;
+        try {
+            con.execute();
+            Document doc = con.response().parse();
+        } catch (IOException e) {
+            threw = true;
+            assertEquals("Input is binary and unsupported", e.getMessage());
+        }
+        assertTrue(threw);
+    }
+
+    @Test
+    public void testBinaryContentTypeThrowsException() {
+        Connection con = Jsoup.connect(FileServlet.Url);
+        con.data(FileServlet.LocationParam, "/htmltests/thumb.jpg");
+        con.data(FileServlet.ContentTypeParam, "image/jpeg");
+
+        boolean threw = false;
+        try {
+            con.execute();
+            Document doc = con.response().parse();
+        } catch (IOException e) {
+            threw = true;
+            assertEquals("Unhandled content type. Must be text/*, application/xml, or application/xhtml+xml", e.getMessage());
+        }
+        assertTrue(threw);
+    }
+
+    @Test
+    public void canFetchBinaryAsBytes() throws IOException {
+        Connection.Response res = Jsoup.connect(FileServlet.Url)
+            .data(FileServlet.LocationParam, "/htmltests/thumb.jpg")
+            .data(FileServlet.ContentTypeParam, "image/jpeg")
+            .ignoreContentType(true)
+            .execute();
+
+        byte[] bytes = res.bodyAsBytes();
+        assertEquals(1052, bytes.length);
     }
 }
